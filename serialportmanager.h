@@ -1,22 +1,22 @@
 #ifndef SERIALPORTMANAGER_H
 #define SERIALPORTMANAGER_H
 
-//#include "mainwindow.h"
 #include <QMainWindow>
 #include <QObject>
 #include <QtSerialPort/QSerialPortInfo>
 #include <QtSerialPort/QSerialPort>
 #include <QFile>
 
-class MainWindow;
+//#include "mainwindow.h"
+
+class ImageProcessing;
 class SerialPortManager:public QObject
 {
     Q_OBJECT
 
 public:
-    explicit SerialPortManager(MainWindow *mainWindow,QObject *parent = nullptr);
+    SerialPortManager();
     ~SerialPortManager();
-//    SerialPortManager();
 
     bool openPort(const QString &portName);
     void closePort();
@@ -35,11 +35,16 @@ public:
     void sendFile(const QString &filepath);
     void receiveFile(const QString &filepath);
 
-//    void handleError(QSerialPort::SerialPortError error);
+signals:
+    void serialErrorSignal(QString);
+    void readyReadSignal(QString);
 
+private slots:
+    void handleError();
 private:
     QSerialPort *serialPort;
-    MainWindow *mainWindow;
+    ImageProcessing *imageProcessing;
+
 };
 
 #endif // SERIALPORTMANAGER_H

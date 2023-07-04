@@ -15,6 +15,9 @@ namespace Ui {
 class MainWindow;
 }
 
+class ImageProcessing;
+class SerialPortManager;
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -22,9 +25,11 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
-//    void SaveSettings(); //сохранение настроек
-//    void loadSettings();//загрузка настроек
     bool asciiHex();
+
+public slots:
+    void sendOfError(QString str);
+    void FromImg(QString str);
 
 private slots:
     void onsetPortName(const QString &arg1);
@@ -32,7 +37,6 @@ private slots:
     void onsetStopBits(const QString &arg1);
     void onsetParity(const QString &arg1);
     void onsetDataBits(const QString &arg1);
-//    void sendOfError();
     void exitProgram();
     void toconnect();
     void disconnect();
@@ -45,9 +49,7 @@ private slots:
 private:
     Ui::MainWindow *ui;
     SerialPortManager *serialManager;
-    ImageProcessing imageProcessing;
-//    QSettings* settings;
-//    QSerialPort *serial;
+    ImageProcessing *imageProcessing;
 };
 
 #endif // MAINWINDOW_H

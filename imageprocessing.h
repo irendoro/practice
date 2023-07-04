@@ -6,20 +6,34 @@
 #include <QFileDialog>
 #include <serialportmanager.h>
 
-class ImageProcessing
+
+
+class SerialPortManager;
+//class MainWindow;
+class ImageProcessing: public QObject
 {
+    Q_OBJECT
+
 public:
+    ImageProcessing();
+    ~ImageProcessing();
+
     void processImage(const QString &filePath);
-//    explicit ImageProcessing(MainWindow *mainWindow,QObject *parent = nullptr);
-//    ~ImageProcessing();
+    void reverseProcessImage(const QString &filePath);
+
+public slots:
+    void recieveSerialErrorSignal(QString);
+signals:
+    void sendImgInfo(QString);
+
+
 private:
     QImage formatImage(const QImage &image);
     bool saveImageSrc(const QImage &image, const QString &newFileName);
     QString highlightingTheFileName(const QString &filePath);
     QString filenameConversion(const QString &filename, const QString &suffix);
     QImage formatData(const QImage &image, const QString &fileName);
-    QString newFileName;
-    SerialPortManager serialPortManager;
+    SerialPortManager *serialPortManager;
 };
 
 #endif // IMAGEPROCESSING_H
