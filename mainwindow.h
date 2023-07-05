@@ -28,19 +28,27 @@ public:
     bool asciiHex();
 
 public slots:
-    void sendOfError(QString str);
-    void FromImg(QString str);
+    void sendOfError(QString);
+//    void FromImg(QString str);
+    void toConnect();
+    void fromImage(QString);
+    void toDisconnect();
+    void receiveMessage(QByteArray);
+
+//    void handleForwardPortOpened();
+signals:
+    void checkportStatusSignal(QString);
 
 private slots:
-    void onsetPortName(const QString &arg1);
-    void onsetBaudRate(const QString &arg1);
-    void onsetStopBits(const QString &arg1);
-    void onsetParity(const QString &arg1);
-    void onsetDataBits(const QString &arg1);
-    void exitProgram();
-    void toconnect();
-    void disconnect();
-    void settings();
+    void onSetPortName(const QString &arg1);
+    void onSetBaudRate(const QString &arg1);
+    void onSetStopBits(const QString &arg1);
+    void onSetParity(const QString &arg1);
+    void onSetDataBits(const QString &arg1);
+//    void exitProgram();
+
+
+//    void settings();
     void send();
     void clear();
     void chooseImage();
@@ -48,8 +56,10 @@ private slots:
 
 private:
     Ui::MainWindow *ui;
-    SerialPortManager *serialManager;
+    //SerialPortManager *serialManager;
     ImageProcessing *imageProcessing;
+
+
 };
 
 #endif // MAINWINDOW_H

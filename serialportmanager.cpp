@@ -4,9 +4,11 @@
 
 SerialPortManager::SerialPortManager()
 {
-    serialPort = new QSerialPort();
+    serialPort.reset(new QSerialPort);
+    //передача сигнала serialPort->SerialPortManager
+    connect(serialPort.get(), SIGNAL(errorOccurred(QSerialPort::SerialPortError)), this, SLOT(handleError()));
+//    connect(imageProcessing, SIGNAL(portStatusSignal(bool)), this, SLOT(checkPortStatus()));
     //инициализация начальных значений
-    connect(serialPort, SIGNAL(errorOccurred(QSerialPort::SerialPortError)), this, SLOT(handleError()));
     serialPort->setBaudRate(QSerialPort::Baud115200);
     serialPort->setDataBits(QSerialPort::Data8);
     serialPort->setStopBits(QSerialPort::OneStop);
@@ -21,15 +23,68 @@ SerialPortManager::~SerialPortManager()
 }
 
 //проверка открытия порта
-bool SerialPortManager::openPort(const QString &portName)
+bool SerialPortManager::openPort()
 {
-    serialPort->setPortName(portName);
+    bool rezult = false;
     if (serialPort->open(QIODevice::ReadWrite))
     {
-//        connect(serialPort, &QSerialPort::readyRead, this, &SerialPortManager::receiveData);
-        return true;
+        connect(serialPort.get(), &QSerialPort::readyRead, this, &SerialPortManager::receiveData);
+        rezult = true;
     }
-    return false;
+    return rezult;
+}
+
+bool SerialPortManager::testOpenPort()
+{
+    bool result = false;
+    if (serialPort->isOpen())
+        result = true;
+    return result;
+}
+
+bool SerialPortManager::settingsOnComPort(QString portName, int baudRate, QString stopBits, QString parity, QString dataBits)
+{
+    bool result = false;
+
+    serialPort->setPortName(portName);
+    serialPort->setBaudRate(baudRate);
+
+    QSerialPort::StopBits StopBits;
+    if (stopBits == "1")
+        StopBits = QSerialPort::OneStop;
+    else if (stopBits == "1.5")
+        StopBits = QSerialPort::OneAndHalfStop;
+    else
+        StopBits = QSerialPort::TwoStop;
+    serialPort->setStopBits(StopBits);
+
+    QSerialPort::Parity Parity;
+    if (parity == "None")
+        Parity = QSerialPort::NoParity;
+    else if (parity == "Odd")
+        Parity = QSerialPort::OddParity;
+    else if (parity == "Even")
+        Parity = QSerialPort::EvenParity;
+    else if (parity == "Space")
+        Parity = QSerialPort::SpaceParity;
+    else
+        Parity = QSerialPort::MarkParity;
+    serialPort->setParity(Parity);
+
+    QSerialPort::DataBits DataBits;
+    if (dataBits == "5")
+        DataBits = QSerialPort::Data5;
+    else if (dataBits == "6")
+        DataBits = QSerialPort::Data6;
+    else if (dataBits == "7")
+        DataBits = QSerialPort::Data7;
+    else
+        DataBits = QSerialPort::Data8;
+    serialPort->setDataBits(DataBits);
+
+    if (openPort())
+        result = true;
+    return result;
 }
 
 //проверка закрытия порта
@@ -44,76 +99,26 @@ void SerialPortManager::closePort()
 //отправка сообщения по ком-порту
 bool SerialPortManager::sendData(const QByteArray &data)
 {
+    bool result = false;
     serialPort->write(data);
     if (serialPort->waitForBytesWritten())
-        return true;
-    else
-        return false;
+        result = true;
+    return result;
 }
 
 //прием сообщений по ком-порту
 void SerialPortManager::receiveData()
 {
-
     if (serialPort->isOpen())
     {
         QByteArray responceData = serialPort->readAll();
         if (!responceData.isEmpty())
         {
-            QString Responce;
-//            if (mainWindow->asciiHex())
-//                Responce = QString(responceData);
-//            else
-                Responce = QString(responceData.toHex());
-            //emit Res
+            emit serialReceiveSignal(responceData);
         }
         else
-            return;
+            qDebug() << "Not good";
     }
-}
-
-//присваивание имени ком-порту
-void SerialPortManager::tosetPortName(const QString &arg1)
-{
-    serialPort->setPortName(arg1);
-}
-
-//присваивание скорости
-void SerialPortManager::tosetBaudRate(qint32 baudRate)
-{
-    serialPort->setBaudRate(baudRate);
-}
-
-//присваивание стоп-битов
-void SerialPortManager::tosetStopBits(QSerialPort::StopBits stopbits)
-{
-    serialPort->setStopBits(stopbits);
-}
-
-//присваивание четности
-void SerialPortManager::tosetParity(QSerialPort::Parity parity)
-{
-    serialPort->setParity(parity);
-}
-
-//присваивание датабитов
-void SerialPortManager::tosetDataBits(QSerialPort::DataBits dataBits)
-{
-    serialPort->setDataBits(dataBits);
-}
-
-
-//вывод настроек
-QString SerialPortManager::tosettings()
-{
-    QString portSettings = QString("Port Name: %1\n""Baud Rate: %2\nData Bits: %3\nParity: %4\n"
-                                           "Stop Bits: %5\n")
-                                           .arg(serialPort->portName())
-                                           .arg(serialPort->baudRate())
-                                           .arg(serialPort->dataBits())
-                                           .arg(serialPort->parity())
-                                           .arg(serialPort->stopBits());
-    return portSettings;
 }
 
 //отправка файла по ком-порту
@@ -148,6 +153,7 @@ void SerialPortManager::sendFile(const QString &filepath)
 //прием файлов по ком-порту
 void SerialPortManager::receiveFile(const QString &filepath)
 {
+    emit serialErrorSignal("шлем");
     QFile file(filepath);
     if (!file.open(QIODevice::ReadOnly)) {
         //сообщение об ошибке
@@ -164,11 +170,11 @@ void SerialPortManager::receiveFile(const QString &filepath)
 
 void SerialPortManager::handleError()
 {
-//    if (error == QSerialPort::NoError)
-//        return;
     QString errorMessage = serialPort->errorString();
     emit serialErrorSignal(errorMessage);
 }
+
+
 
 
 

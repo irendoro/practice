@@ -17,7 +17,7 @@
    <widget class="QGroupBox" name="groupBox">
     <property name="geometry">
      <rect>
-      <x>140</x>
+      <x>150</x>
       <y>0</y>
       <width>171</width>
       <height>181</height>
@@ -178,7 +178,7 @@
       <x>10</x>
       <y>0</y>
       <width>131</width>
-      <height>181</height>
+      <height>131</height>
      </rect>
     </property>
     <property name="title">
@@ -190,7 +190,7 @@
        <x>0</x>
        <y>20</y>
        <width>131</width>
-       <height>151</height>
+       <height>91</height>
       </rect>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout">
@@ -208,20 +208,6 @@
         </property>
         <property name="text">
          <string>Отключение</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="Settings">
-        <property name="text">
-         <string>Настройки</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="Exit">
-        <property name="text">
-         <string>Выход</string>
         </property>
        </widget>
       </item>
@@ -254,6 +240,9 @@
        <widget class="QRadioButton" name="ASCII">
         <property name="text">
          <string>ASCII</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
         </property>
        </widget>
       </item>
@@ -330,6 +319,9 @@
         <property name="text">
          <string>ASCII</string>
         </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
        </widget>
       </item>
       <item>
@@ -390,6 +382,19 @@
       <string>Отправка файла</string>
      </property>
     </widget>
+   </widget>
+   <widget class="QLabel" name="label_6">
+    <property name="geometry">
+     <rect>
+      <x>350</x>
+      <y>390</y>
+      <width>55</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>TextLabel</string>
+    </property>
    </widget>
   </widget>
   <widget class="QMenuBar" name="menuBar">

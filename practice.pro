@@ -29,12 +29,14 @@ SOURCES += \
         main.cpp \
         mainwindow.cpp \
     serialportmanager.cpp \
-    imageprocessing.cpp
+    imageprocessing.cpp \
+    #aaa.cpp
 
 HEADERS += \
         mainwindow.h \
     serialportmanager.h \
-    imageprocessing.h
+    imageprocessing.h \
+    #aaa.h
 
 FORMS += \
         mainwindow.ui

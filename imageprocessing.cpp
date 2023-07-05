@@ -2,15 +2,31 @@
 
 #include <QDebug>
 #include <QFileInfo>
-//#include <QObject>
+#include <QObject>
 #include "mainwindow.h"
+#include "serialportmanager.h"
 
 ImageProcessing::ImageProcessing()
 {
-    qDebug()<<"";
-    serialPortManager = new SerialPortManager();
 
-   // connect(serialPortManager, SIGNAL(serialErrorSignal(QString)), this, SLOT(recieveSerialErrorSignal(QString)));
+    //    serialPortManager = new SerialPortManager();
+
+//    connect(serialPortManager, SIGNAL(serialErrorSignal(QString)), this, SLOT(receiveSerialErrorSignal(QString)));
+//    connect(serialPortManager,SIGNAL(serialNum(int)) , this, SLOT(myTmp(int)) );
+    serialPortManager.reset(new SerialPortManager);
+
+   // QObject::connect(serialPortManager.get(), SIGNAL(serialErrorSignal(QString)), this, SLOT(receiveSerialErrorSignal(QString)),  Qt::AutoConnection);
+    QObject::connect(serialPortManager.get(), &SerialPortManager::serialErrorSignal,
+    this, &ImageProcessing::receiveSerialErrorSignal    );
+    QObject::connect(serialPortManager.get(), &SerialPortManager::serialReceiveSignal,
+    this, &ImageProcessing::receiveSerialSignal);
+
+
+
+   /// connect(serialPortManager.get(), SIGNAL(serialNum(int)) , this, SLOT(myTmp(int)) );
+//    connect(serialPortManager, SIGNAL(portOpened(bool)), this, SLOT(handlePortOpened(bool)));
+//    connect(mainWindow, SIGNAL(checkPortStatusSignal()), this, SLOT(checkPortStatusSlot()));
+//    connect(serialPortManager, SIGNAL(portStatusSignal(bool)), this, SLOT(handlePortStatus(bool)));
 }
 
 
@@ -21,7 +37,10 @@ ImageProcessing:: ~ImageProcessing()
 
 
 
-
+//void ImageProcessing::myTmp(int num)
+//{
+//    qDebug()<<"NUM="<<num;
+//}
 //Преобразование изображения для отправки на ком-порт
 void ImageProcessing::processImage(const QString &filePath)
 {
@@ -36,7 +55,7 @@ void ImageProcessing::processImage(const QString &filePath)
     //создание имени бинарного файла "Файл_src.bin"
     QString newFilename = filenameConversion(fileName, "_src.bin");
     //если изображение цветное, то дополнительное форматирование
-    qDebug() << image.format();
+    qDebug() <<"format=" <<image.format();
     //if (image.format() == QImage::Format_RGB666)
         image = formatImage(image);
     //сохранение полученных результатов в бинарный файл "файл_src.bin"
@@ -52,6 +71,7 @@ void ImageProcessing::processImage(const QString &filePath)
     serialPortManager->sendFile(newFilename);
     newFilename = filenameConversion(fileName, "_res_data.bin");
     serialPortManager->receiveFile(newFilename);
+//    emit toMain("вывод текста");
 }
 
 //обратное преобразование
@@ -60,11 +80,60 @@ void ImageProcessing::reverseProcessImage(const QString &filePath)
     //??
 }
 
-void ImageProcessing::recieveSerialErrorSignal(QString errorsFromSerial)
+bool ImageProcessing::transferSettings(QString portName, int baudRate, QString stopBits, QString parity, QString dataBits)
 {
-    qDebug() <<"ImageProcessing получил сигнал с ошибками, высылаю сигнал дальше" ;
-    //emit printError(errorsFromSerial);
+    bool result = false;
+    if (serialPortManager->settingsOnComPort(portName, baudRate, stopBits, parity, dataBits))
+        result = true;
+    return result;
 }
+
+void ImageProcessing::transferToClosePort()
+{
+    serialPortManager->closePort();
+}
+
+bool ImageProcessing::checkOpenPort()
+{
+    bool result = false;
+    if (serialPortManager->testOpenPort())
+        result = true;
+    return result;
+}
+
+bool ImageProcessing::sendMessage(QByteArray byteArray)
+{
+    bool result = false;
+    if (serialPortManager->sendData(byteArray))
+        result = true;
+    return result;
+}
+
+void ImageProcessing::receiveSerialErrorSignal(QString errorsFromSerial)
+{
+    emit printError(errorsFromSerial);
+}
+
+void ImageProcessing::receiveSerialSignal(QByteArray byteArray)
+{
+    emit serialReceivedSignal(byteArray);
+}
+
+//void ImageProcessing::checkPortStatusSlot(QString portName)
+//{
+//    bool portStatus = serialPortManager->checkPortStatus(portName);
+//    emit portStatusSignal(portStatus);
+//}
+
+//void ImageProcessing::handlePortStatus(bool success)
+//{
+//    if (success)
+//        qDebug() << "Port is Open";
+//    else
+//        qDebug() << "Port is Closed";
+
+
+//}
 
 //сохранение файлов после преобразования из 24-ричного представления в 16-ричное
 bool ImageProcessing::saveImageSrc(const QImage &image, const QString &newFileName)
@@ -112,15 +181,13 @@ QImage ImageProcessing::formatImage(const QImage &image)
 
         }
     }
-    QRgb pixel = image.pixel(0,0);
+//    QRgb pixel = image.pixel(0,0);
 
-    int colorPixel = (qRed(pixel) >> 3) << 11 | (qGreen(pixel) >> 2) << 5 | (qBlue(pixel) >> 3);
+//    int colorPixel = (qRed(pixel) >> 3) << 11 | (qGreen(pixel) >> 2) << 5 | (qBlue(pixel) >> 3);
 
-    qDebug() << QString("%1").arg(pixel,0,16);
+//    qDebug() << QString("%1").arg(pixel,0,16);
 
-    qDebug() << QString("%1").arg(colorPixel,0,16);
-    QString string = "j has done!";
-    emit sendImgInfo(string);
+//    qDebug() << QString("%1").arg(colorPixel,0,16);
     return formattedImage;
 }
 

@@ -14,10 +14,10 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
 
     imageProcessing = new ImageProcessing();
-    serialManager = new SerialPortManager();
-    connect(imageProcessing, SIGNAL(sendImgInfo(QString)), this, SLOT(FromImg(QString)));
-    connect(serialManager, SIGNAL(serialErrorSignal(QString)), this, SLOT(sendOfError(QString)));
+//    connect(imageProcessing, SIGNAL(toMain(QString)), this, SLOT(fromImage(QString)));
 
+    connect(imageProcessing, SIGNAL(printError(QString)), this, SLOT(sendOfError(QString)));
+    connect(imageProcessing, SIGNAL(serialReceivedSignal(QByteArray)), this, SLOT(receiveMessage(QByteArray)));
 
     //Заполнение списка доступных ком-портов
     foreach (const QSerialPortInfo &serialPortInfo, QSerialPortInfo::availablePorts())
@@ -36,35 +36,17 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setParity->setCurrentIndex(0);
     ui->setStopbits->setCurrentIndex(0);
     //переход к слотам
-    connect(ui->Exit, &QPushButton::clicked, this, &MainWindow::exitProgram);
-    connect(ui->Settings, &QPushButton::clicked, this, &MainWindow::settings);
-    connect(ui->Connect, &QPushButton::clicked, this, &MainWindow::toconnect);
-    connect(ui->Disconnect, &QPushButton::clicked, this, &MainWindow::disconnect);
+    connect(ui->Connect, &QPushButton::clicked, this, &MainWindow::toConnect);
+    connect(ui->Disconnect, &QPushButton::clicked, this, &MainWindow::toDisconnect);
     connect(ui->send, &QPushButton::clicked, this, &MainWindow::send);
     connect(ui->clear, &QPushButton::clicked, this, &MainWindow::clear);
-    connect(ui->setPortName, QOverload<const QString&>::of(&QComboBox::activated),this, &MainWindow::onsetPortName);
-    connect(ui->setBaudrate, QOverload<const QString&>::of(&QComboBox::activated),this, &MainWindow::onsetBaudRate);
-    connect(ui->setParity, QOverload<const QString&>::of(&QComboBox::activated),this, &MainWindow::onsetParity);
-    connect(ui->setDatabits, QOverload<const QString&>::of(&QComboBox::activated),this, &MainWindow::onsetDataBits);
-    connect(ui->setStopbits, QOverload<const QString&>::of(&QComboBox::activated),this, &MainWindow::onsetStopBits);
     connect(ui->chooseImage, &QPushButton::clicked, this,&MainWindow::chooseImage);
     connect(ui->sendFile, &QPushButton::clicked, this, &MainWindow::sendDataFile);
-    //connect(imageProcessing, SIGNAL(printError(QString)), this, SLOT(sendOfError(QString)));
-
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
-}
-
-
-
-
-void MainWindow::FromImg(QString str)
-{
-    qDebug()<<"YEEEES"<<str;
-
 }
 
 //функция возвращения значения нажатой кнопки
@@ -78,78 +60,60 @@ bool MainWindow::asciiHex()
 
 void MainWindow::sendOfError(QString errorsFromSerial)
 {
-    qDebug() << "MainWindow принял сигнал с ошибками = " << errorsFromSerial;
-    ui->inputMessage->append("Serial Port Error: " + errorsFromSerial);
+    statusBar()->showMessage("Serial Port Error: " + errorsFromSerial);
 }
 
-//Функция выхода из программы
-void MainWindow::exitProgram()
-{
-    close();
-}
 
 //кнопка Connect действия при присоединении к ком-порту
-void MainWindow::toconnect()
+void MainWindow::toConnect()
 {
     QString portName = ui->setPortName->currentText();
-    if (serialManager->openPort(portName))
+    int baudRate = ui->setBaudrate->currentText().toInt();
+    QString stopBits = ui->setStopbits->currentText();
+    QString parity = ui->setParity->currentText();
+    QString dataBits = ui->setDatabits->currentText();
+    if (imageProcessing->transferSettings(portName, baudRate, stopBits, parity, dataBits))
     {
-        ui->setPortName->setEnabled(false);
-        ui->setBaudrate->setEnabled(false);
-        ui->setDatabits->setEnabled(false);
-        ui->setParity->setEnabled(false);
-        ui->setStopbits->setEnabled(false);
+        ui->groupBox->setEnabled(false);
         ui->Connect->setEnabled(false);
         ui->Disconnect->setEnabled(true);
-        //statusBar()->showMessage("Success! COM-PORT is opened.");
-    }
-    else
-    {
-        statusBar()->showMessage("Unsuccess! COM-PORT is closed.");
-        return;
     }
 }
 
 //отключение компорта
-void MainWindow::disconnect()
+void MainWindow::toDisconnect()
 {
-    serialManager->closePort();
+    imageProcessing->transferToClosePort();
     ui->Connect->setEnabled(true);
     ui->Disconnect->setEnabled(false);
-    ui->setPortName->setEnabled(true);
-    ui->setBaudrate->setEnabled(true);
-    ui->setDatabits->setEnabled(true);
-    ui->setParity->setEnabled(true);
-    ui->setStopbits->setEnabled(true);
+    ui->groupBox->setEnabled(true);
 }
 
-
-
-//Вывод настроек компорта
-void MainWindow::settings()
+void MainWindow::receiveMessage(QByteArray responceData)
 {
-    QString portSettings = serialManager->tosettings();
-    QMessageBox::information(this, "Port Settings", portSettings);
+    QString Responce;
+    if (asciiHex())
+        Responce = QString(responceData);
+    else
+        Responce = QString(responceData.toHex());
+    ui->outputMessage->setText(Responce);
 }
 
 //отправка сообщения по ком-порту
 void MainWindow::send()
 {
-    QString portName = ui->setPortName->currentText();
-    if (serialManager->openPort(portName))
-    {
+    if (imageProcessing->checkOpenPort()) {
         QString message = ui->inputMessage->toPlainText();
         QByteArray byteArray;
         if (ui->ASCII->isChecked())
             byteArray = message.toUtf8();
         else
             byteArray = QByteArray::fromHex(message.toUtf8());
-        if (serialManager->sendData(byteArray))
+        if (imageProcessing->sendMessage(byteArray))
             statusBar()->showMessage("Success!");
         else
             statusBar()->showMessage("Unsuccess!");
-    }
-    else
+    } else
         statusBar()->showMessage("Unsuccess! Com-port is closed!");
 }
 
@@ -168,7 +132,6 @@ void MainWindow::chooseImage()
         return;
     }
     imageProcessing->processImage(filePath);
-
 }
 
 //отправка файла по ком-порту
@@ -181,69 +144,6 @@ void MainWindow::sendDataFile()
 //    }
 }
 
-//выбор ком-порта
-void MainWindow::onsetPortName(const QString &arg1)
-{
-    serialManager->tosetPortName(arg1);
-}
-
-//выбор скорости
-void MainWindow::onsetBaudRate(const QString &arg1)
-{
-    int n = arg1.toInt();
-    serialManager->tosetBaudRate(n);
-}
-
-//выбор стоп-битов
-void MainWindow::onsetStopBits(const QString &arg1)
-{
-    QSerialPort::StopBits stopBits = QSerialPort::OneStop;
-    if (arg1 == "1")
-        stopBits = QSerialPort::OneStop;
-    else if (arg1 == "1.5")
-        stopBits = QSerialPort::OneAndHalfStop;
-    else if (arg1 == "2")
-        stopBits = QSerialPort::TwoStop;
-    serialManager->tosetStopBits(stopBits);
-}
-
-//выбор четности
-void MainWindow::onsetParity(const QString &arg1)
-{
-    QSerialPort::Parity parity = QSerialPort::NoParity;
-    if (arg1 == "None")
-        parity = QSerialPort::NoParity;
-    else if (arg1 == "Odd")
-        parity = QSerialPort::OddParity;
-    else if (arg1 == "Even")
-        parity = QSerialPort::EvenParity;
-    else if (arg1 == "Space")
-        parity = QSerialPort::SpaceParity;
-    else if (arg1 == "Mark")
-        parity = QSerialPort::MarkParity;
-    serialManager->tosetParity(parity);
-}
-
-//выбор датабитов
-void MainWindow::onsetDataBits(const QString &arg1)
-{
-    QSerialPort::DataBits dataBits = QSerialPort::Data8;
-    if (arg1 == "5")
-        dataBits = QSerialPort::Data5;
-    else if (arg1 == "6")
-        dataBits = QSerialPort::Data6;
-    else if (arg1 == "7")
-        dataBits = QSerialPort::Data7;
-    else if (arg1 == "8")
-        dataBits = QSerialPort::Data8;
-    serialManager->tosetDataBits(dataBits);
-}
-
-//сигнал ошибки
-//void MainWindow::sendOfError()
-//{
-
-//}
 
 
 
