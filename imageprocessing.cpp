@@ -36,12 +36,18 @@ void ImageProcessing::processImage(const QString &filePath)
     if (image.format() != QImage::Format_Grayscale8 && image.format() != QImage::Format_Mono && image.format() != QImage::Format_MonoLSB)//если изображение цветное, то дополнительное форматирование
         image = image.convertToFormat(QImage::Format_RGB16); //форматирование цаетных изображений из 24 в 16-битное представление
     QByteArray arrayImage = formatImage(image);
-    if (!saveImageSrc(arrayImage, newFilename))
+    if (!saveImage(arrayImage, newFilename))
     {
-        qDebug() << "Не удалось сохранить бинарный файл!";
+        qDebug() << "Не удалось сохранить бинарный файл _src.bin!";
         return;
     }
-//    newFilename = filenameConversion(fileName, "_data.bin");
+    newFilename = filenameConversion(fileName, "_data.bin");
+    arrayImage = formatData(arrayImage);
+    if (!saveImage(arrayImage, newFilename))
+    {
+        qDebug() << "Не удалось сохранить бинарный файл _data.bin!";
+        return;
+    }
 //    //форматирование каждого пикселя по протоколу
 //    image = formatData(image, newFilename);
 //    //добавить проверку что файл вообще есть и он не пустой
@@ -97,7 +103,7 @@ void ImageProcessing::receiveSerialSignal(QByteArray byteArray)
 }
 
 //сохранение файлов после преобразования из 24-ричного представления в 16-ричное
-bool ImageProcessing::saveImageSrc(QByteArray image, const QString &newFileName)
+bool ImageProcessing::saveImage(QByteArray image, const QString &newFileName)
 {
     bool flag = false;
     QFile outputFile(newFileName);
@@ -167,32 +173,24 @@ QString ImageProcessing::filenameConversion(const QString &filename, const QStri
 }
 
 //преобразование каждого пикселя по протоколу и сохранение в бинарный файл для отправки по ком-порту
-QImage ImageProcessing::formatData(const QImage &image, const QString &newFilename)
+QByteArray ImageProcessing::formatData(const QByteArray &image)
 {
-    QFile outputFile(newFilename);
-    QImage formattedImage(image.width(), image.height(), QImage::Format_RGB32);
-    if (!outputFile.open(QIODevice::WriteOnly))
+    int dataSize = image.size();
+    QByteArray expandedImage;
+    for (int i = 0; i < dataSize; i+=4)
     {
-        //сообщение об ошибке
-        return formattedImage;
-    }
+        QByteArray data = image.mid(i, 4);
 
-    QDataStream stream(&outputFile);
-    stream.setByteOrder(QDataStream::LittleEndian);
-    for (int y = 0; y<image.height(); y++)
-    {
-        for (int x = 0; x<image.width(); x++)
+        data.resize(8);
+        for (int j = 0; j < 4; j++)
         {
-            QRgb pixel = image.pixel(x,y);
-
-            quint64 formattedPixel = static_cast<quint64>(pixel) << 32;
-
-            stream << formattedPixel;
-            formattedImage.setPixel(x,y,pixel);
+            char c = 0;
+            data[4+j] = c;
         }
+        expandedImage.append(data);
     }
-    outputFile.close();
-    return formattedImage;
+
+    return expandedImage;
 }
 
 

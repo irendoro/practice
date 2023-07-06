@@ -41,10 +41,10 @@ signals:
 
 private:
     QByteArray formatImage(const QImage &image);
-    bool saveImageSrc(QByteArray image, const QString &newFileName);
+    bool saveImage(QByteArray image, const QString &newFileName);
     QString highlightingTheFileName(const QString &filePath);
     QString filenameConversion(const QString &filename, const QString &suffix);
-    QImage formatData(const QImage &image, const QString &fileName);
+    QByteArray formatData(const QByteArray &image);
 
     //SerialPortManager *serialPortManager;
     std::unique_ptr<SerialPortManager> serialPortManager;
