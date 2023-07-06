@@ -77,6 +77,7 @@ void MainWindow::toConnect()
         ui->groupBox->setEnabled(false);
         ui->Connect->setEnabled(false);
         ui->Disconnect->setEnabled(true);
+        ui->chooseImage->setEnabled(false);
     }
 }
 
@@ -87,6 +88,7 @@ void MainWindow::toDisconnect()
     ui->Connect->setEnabled(true);
     ui->Disconnect->setEnabled(false);
     ui->groupBox->setEnabled(true);
+    ui->chooseImage->setEnabled(true);
 }
 
 void MainWindow::receiveMessage(QByteArray responceData)

@@ -19,7 +19,6 @@ public:
     ImageProcessing();
     ~ImageProcessing();
 
-
     void processImage(const QString &filePath);
     void reverseProcessImage(const QString &filePath);
     bool transferSettings(QString portName, int baudRate, QString stopBits, QString parity, QString dataBits);
@@ -41,8 +40,8 @@ signals:
 
 
 private:
-    QImage formatImage(const QImage &image);
-    bool saveImageSrc(const QImage &image, const QString &newFileName);
+    QByteArray formatImage(const QImage &image);
+    bool saveImageSrc(QByteArray image, const QString &newFileName);
     QString highlightingTheFileName(const QString &filePath);
     QString filenameConversion(const QString &filename, const QString &suffix);
     QImage formatData(const QImage &image, const QString &fileName);

@@ -13,8 +13,6 @@ SerialPortManager::SerialPortManager()
     serialPort->setDataBits(QSerialPort::Data8);
     serialPort->setStopBits(QSerialPort::OneStop);
     serialPort->setParity(QSerialPort::NoParity);
-//    connect(serialPort, &QSerialPort::readyRead, this, &SerialPortManager::receiveData);
-
 }
 
 SerialPortManager::~SerialPortManager()
@@ -117,7 +115,7 @@ void SerialPortManager::receiveData()
             emit serialReceiveSignal(responceData);
         }
         else
-            qDebug() << "Not good";
+            qDebug() << "Not good";// что тут выводить?
     }
 }
 
