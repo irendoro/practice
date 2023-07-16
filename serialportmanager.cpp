@@ -7,7 +7,6 @@ SerialPortManager::SerialPortManager()
     serialPort.reset(new QSerialPort);
     //передача сигнала serialPort->SerialPortManager
     connect(serialPort.get(), SIGNAL(errorOccurred(QSerialPort::SerialPortError)), this, SLOT(handleError()));
-//    connect(imageProcessing, SIGNAL(portStatusSignal(bool)), this, SLOT(checkPortStatus()));
     //инициализация начальных значений
     serialPort->setBaudRate(QSerialPort::Baud115200);
     serialPort->setDataBits(QSerialPort::Data8);
@@ -20,7 +19,12 @@ SerialPortManager::~SerialPortManager()
     closePort();
 }
 
-//проверка открытия порта
+//--------------------------------------------------
+//  Открытие Com-Port
+//  вх: нет
+//  выход: bool result - результат открытия ком-порта
+//
+//--------------------------------------------------
 bool SerialPortManager::openPort()
 {
     bool rezult = false;
@@ -32,6 +36,12 @@ bool SerialPortManager::openPort()
     return rezult;
 }
 
+//--------------------------------------------------
+//  Проверка открытия Com-Port
+//  вх: нет
+//  выход: bool result - результат открытия ком-порта
+//
+//--------------------------------------------------
 bool SerialPortManager::testOpenPort()
 {
     bool result = false;
@@ -40,6 +50,16 @@ bool SerialPortManager::testOpenPort()
     return result;
 }
 
+//--------------------------------------------------
+//  Установка настроек Com-port
+//  вх: QString portName - имя ком-порта,
+//      int baudRate - скорость ком-порта
+//      QString stopBits - стоп-биты
+//      QString parity - четность
+//      QString dataBits - дата биты
+//  выход: bool result - результат установки настроек ком-порта
+//
+//--------------------------------------------------
 bool SerialPortManager::settingsOnComPort(QString portName, int baudRate, QString stopBits, QString parity, QString dataBits)
 {
     bool result = false;
@@ -85,7 +105,12 @@ bool SerialPortManager::settingsOnComPort(QString portName, int baudRate, QStrin
     return result;
 }
 
-//проверка закрытия порта
+//--------------------------------------------------
+//  Проверка закрытия Com-Port
+//  вх: нет
+//  выход: нет
+//
+//--------------------------------------------------
 void SerialPortManager::closePort()
 {
     if (serialPort->isOpen())
@@ -94,78 +119,55 @@ void SerialPortManager::closePort()
     }
 }
 
-//отправка сообщения по ком-порту
+//--------------------------------------------------
+//  Отправка сообщения на Com-Port
+//  вх: const QByteArray &data - сообщение для отправки
+//  выход: bool result - результат отправки сообщения на ком-порт
+//
+//--------------------------------------------------
 bool SerialPortManager::sendData(const QByteArray &data)
 {
     bool result = false;
-    serialPort->write(data);
+    n = serialPort->write(data);
     if (serialPort->waitForBytesWritten())
         result = true;
     return result;
 }
 
-//прием сообщений по ком-порту
+//--------------------------------------------------
+//  Прием сообщений по Com-Port
+//  вх: нет
+//  выход: нет
+//
+//--------------------------------------------------
 void SerialPortManager::receiveData()
 {
+
     if (serialPort->isOpen())
     {
-        QByteArray responceData = serialPort->readAll();
-        if (!responceData.isEmpty())
+        QByteArray newData = serialPort->readAll();
+        receivedData.append(newData);
+        if (receivedData.size() >= n)
         {
-            emit serialReceiveSignal(responceData);
+            emit serialReceiveSignal(receivedData);
+//            qDebug() << "All good";
         }
-        else
-            qDebug() << "Not good";// что тут выводить?
-    }
-}
-
-//отправка файла по ком-порту
-void SerialPortManager::sendFile(const QString &filepath)
-{
-    QFile file(filepath);
-    if (!file.open(QIODevice::ReadOnly)) {
-        //сообщение об ошибке
-        return;
-    }
-
-   QByteArray fileData = file.readAll();
-
-//    if(serialPort->isOpen())
-//    {
-
-//        serialPort->write(fileData);
-//        if (serialPort->waitForBytesWritten())
-//        {
-//            //все хорошо
-//        }
 //        else
-//        {
-//            //сообщение об ошибке
-//            return;
-//        }
-//    }
-
-
-}
-
-//прием файлов по ком-порту
-void SerialPortManager::receiveFile(const QString &filepath)
-{
-    emit serialErrorSignal("шлем");
-    QFile file(filepath);
-    if (!file.open(QIODevice::ReadOnly)) {
-        //сообщение об ошибке
-        return;
+//            qDebug() << "Problem" << receivedData.size();
     }
-    QTextStream stream(&file);
-    QByteArray responceData = serialPort->readAll();
-    if (!responceData.isEmpty())
-        stream << responceData;
-    file.close();
-
-
 }
 
+void SerialPortManager::resetArr()
+{
+    receivedData.clear();
+}
+
+//--------------------------------------------------
+//  Отправка сообщения об ошибке
+//  вх: нет
+//  выход: нет
+//
+//--------------------------------------------------
 void SerialPortManager::handleError()
 {
     QString errorMessage = serialPort->errorString();

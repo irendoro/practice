@@ -14,8 +14,6 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
 
     imageProcessing = new ImageProcessing();
-//    connect(imageProcessing, SIGNAL(toMain(QString)), this, SLOT(fromImage(QString)));
-
     connect(imageProcessing, SIGNAL(printError(QString)), this, SLOT(sendOfError(QString)));
     connect(imageProcessing, SIGNAL(serialReceivedSignal(QByteArray)), this, SLOT(receiveMessage(QByteArray)));
 
@@ -35,6 +33,8 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setDatabits->setCurrentIndex(3);
     ui->setParity->setCurrentIndex(0);
     ui->setStopbits->setCurrentIndex(0);
+    ui->send->setEnabled(false);
+    ui->outputMessage->setReadOnly(true);
     //переход к слотам
     connect(ui->Connect, &QPushButton::clicked, this, &MainWindow::toConnect);
     connect(ui->Disconnect, &QPushButton::clicked, this, &MainWindow::toDisconnect);
@@ -42,6 +42,9 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->clear, &QPushButton::clicked, this, &MainWindow::clear);
     connect(ui->chooseImage, &QPushButton::clicked, this,&MainWindow::chooseImage);
     connect(ui->sendFile, &QPushButton::clicked, this, &MainWindow::sendDataFile);
+//    connect(ui->send, &QPushButton::clicked, this, &MainWindow::reset);
+//    connect(ui->sendFile, &QPushButton::clicked, this, &MainWindow::reset);
+//    connect(ui->Convertation, &QPushButton::clicked, this, &MainWindow::convertateToImage);
 }
 
 MainWindow::~MainWindow()
@@ -49,22 +52,42 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-//функция возвращения значения нажатой кнопки
+//--------------------------------------------------
+//  Получение результата нажатия кнопки выбора кодировки данных
+//  для получения данных с Com-port
+//
+//  вх: нет
+//  выход: bool result - результат нажатия кнопки:
+//         ASCII - true; HEX - false
+//
+//--------------------------------------------------
 bool MainWindow::asciiHex()
 {
+    bool result = false;
     if (ui->ASCII1->isChecked())
-        return true;
-    else
-        return false;
+        result = true;
+    return result;
 }
 
+//--------------------------------------------------
+//  Вывод сообщения об ошибке, связанной с Com-port
+//  в статусную строку
+//  вх: QString errorsFromSerial - сообщение с ошибкой
+//  выход: нет
+//
+//--------------------------------------------------
 void MainWindow::sendOfError(QString errorsFromSerial)
 {
     statusBar()->showMessage("Serial Port Error: " + errorsFromSerial);
 }
 
-
-//кнопка Connect действия при присоединении к ком-порту
+//--------------------------------------------------
+//  Кнопка Connect, установка настроек, передача настроек
+//  в класс ImageProcessing, деактивация кнопок
+//  вх: нет
+//  выход: нет
+//
+//--------------------------------------------------
 void MainWindow::toConnect()
 {
     QString portName = ui->setPortName->currentText();
@@ -77,20 +100,34 @@ void MainWindow::toConnect()
         ui->groupBox->setEnabled(false);
         ui->Connect->setEnabled(false);
         ui->Disconnect->setEnabled(true);
-        ui->chooseImage->setEnabled(false);
+        ui->sendFile->setEnabled(true);
+        ui->send->setEnabled(true);
     }
 }
 
-//отключение компорта
+//--------------------------------------------------
+//  Кнопка Disconnect, активация кнопок
+//  вх: нет
+//  выход: нет
+//
+//--------------------------------------------------
 void MainWindow::toDisconnect()
 {
     imageProcessing->transferToClosePort();
     ui->Connect->setEnabled(true);
     ui->Disconnect->setEnabled(false);
     ui->groupBox->setEnabled(true);
-    ui->chooseImage->setEnabled(true);
+//    ui->chooseImage->setEnabled(true);
+    ui->sendFile->setEnabled(false);
+    ui->send->setEnabled(false);
 }
 
+//--------------------------------------------------
+//  Отображение полученного сообщения с Com-Port в поле вывода
+//  вх: QByteArray responceData - полученное сообщение
+//  выход: нет
+//
+//--------------------------------------------------
 void MainWindow::receiveMessage(QByteArray responceData)
 {
     QString Responce;
@@ -98,12 +135,28 @@ void MainWindow::receiveMessage(QByteArray responceData)
         Responce = QString(responceData);
     else
         Responce = QString(responceData.toHex());
-    ui->outputMessage->setText(Responce);
+//    qDebug() << "2";
+    ui->outputMessage->append(Responce);
+    bool result = convertateToImage();
+    imageProcessing->reverseProcessImage(responceData, result);
 }
 
-//отправка сообщения по ком-порту
+void MainWindow::reset()
+{
+    imageProcessing->resetArray();
+}
+
+//--------------------------------------------------
+//  Кнопка Send, отправка сообщения для пересылки на ComPort
+//  в класс ImageProcessing
+//
+//  вх: нет
+//  выход: нет
+//
+//--------------------------------------------------
 void MainWindow::send()
 {
+    reset();
     if (imageProcessing->checkOpenPort()) {
         QString message = ui->inputMessage->toPlainText();
         QByteArray byteArray;
@@ -119,13 +172,24 @@ void MainWindow::send()
         statusBar()->showMessage("Unsuccess! Com-port is closed!");
 }
 
-//очистка поля ввода сообщения
+//--------------------------------------------------
+//  Очистка полей ввода и вывода
+//  вх: нет
+//  выход: нет
+//
+//--------------------------------------------------
 void MainWindow::clear()
 {
     ui->inputMessage->clear();
+    ui->outputMessage->clear();
 }
 
-//выбор файла bmp в диалоговом окне
+//--------------------------------------------------
+//  Кнопка ChooseImage - выбор изображения в формате .bmp
+//  вх: нет
+//  выход: нет
+//
+//--------------------------------------------------
 void MainWindow::chooseImage()
 {
     QString filePath = QFileDialog::getOpenFileName(this, "Выберите изображение", "","BMP Image(*.bmp);");
@@ -133,17 +197,28 @@ void MainWindow::chooseImage()
         statusBar()->showMessage("Unsuccess! You havn't selected a file");
         return;
     }
-    imageProcessing->processImage(filePath);
+    bool result = convertateToImage();
+    imageData = imageProcessing->processImage(filePath, result);
 }
 
-//отправка файла по ком-порту
+//--------------------------------------------------
+//  Кнопка SendData - передача файла по ком-порту в класс ImageProcessing
+//  вх: нет
+//  выход: нет
+//
+//--------------------------------------------------
 void MainWindow::sendDataFile()
 {
-    ui->chooseImage->setEnabled(false);
-//    if (serialManager->openPort(portName))
-//    {
-//        imageProcessing.processImage();
-//    }
+    reset();
+    imageProcessing->sendMessage(imageData);
+}
+
+bool MainWindow::convertateToImage()
+{
+    bool result = true;
+    if (ui->radioButtonMono->isChecked())
+        result = false;
+    return result;
 }
 
 

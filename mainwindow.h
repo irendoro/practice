@@ -34,10 +34,12 @@ public slots:
     void fromImage(QString);
     void toDisconnect();
     void receiveMessage(QByteArray);
+    void reset();
 
 //    void handleForwardPortOpened();
 signals:
     void checkportStatusSignal(QString);
+//    void imageDataReady(const QByteArray &array);
 
 private slots:
     void onSetPortName(const QString &arg1);
@@ -53,11 +55,13 @@ private slots:
     void clear();
     void chooseImage();
     void sendDataFile();
+    bool convertateToImage();
 
 private:
     Ui::MainWindow *ui;
     //SerialPortManager *serialManager;
     ImageProcessing *imageProcessing;
+    QByteArray imageData;
 
 
 };

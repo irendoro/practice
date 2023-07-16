@@ -9,8 +9,10 @@
 ImageProcessing::ImageProcessing()
 {
     serialPortManager.reset(new SerialPortManager);
+    //установка соединения между сигналом ошибки serialErrorSignal и слотом receiveSerialErrorSignal
     QObject::connect(serialPortManager.get(), &SerialPortManager::serialErrorSignal,
     this, &ImageProcessing::receiveSerialErrorSignal);
+    //установка соединения между сигналом чтения получаемых данных serialReceiveSignal и слотом receiveSerialSignal
     QObject::connect(serialPortManager.get(), &SerialPortManager::serialReceiveSignal,
     this, &ImageProcessing::receiveSerialSignal);
 }
@@ -21,48 +23,81 @@ ImageProcessing:: ~ImageProcessing()
     qDebug()<<"!!";
 }
 
+//--------------------------------------------------
 //Преобразование изображения для отправки на ком-порт
-void ImageProcessing::processImage(const QString &filePath)
+//
+//  вх: const QString &filePath - путь к файлу (изображение .bmp)
+//  выход: QByteArray arrayImage - массив байт преобразованного изображения
+//                                 для отправки на COM-port
+//
+//--------------------------------------------------
+QByteArray ImageProcessing::processImage(const QString &filePath, bool result)
 {
     QImage image(filePath);
     if (image.isNull())
     {
         qDebug() << "Не удалось открыть изображение";
-        return;
+        return "Error";
     }
-    QString fileName = highlightingTheFileName(filePath); //выделение имени файла
+    fileName = highlightingTheFileName(filePath); //выделение имени файла
     QString newFilename = filenameConversion(fileName, "_src.bin");//создание имени бинарного файла "Файл_src.bin"
-
-    if (image.format() != QImage::Format_Grayscale8 && image.format() != QImage::Format_Mono && image.format() != QImage::Format_MonoLSB)//если изображение цветное, то дополнительное форматирование
-        image = image.convertToFormat(QImage::Format_RGB16); //форматирование цаетных изображений из 24 в 16-битное представление
-    QByteArray arrayImage = formatImage(image);
+    QByteArray arrayImage = formatImage(image, result);
     if (!saveImage(arrayImage, newFilename))
     {
         qDebug() << "Не удалось сохранить бинарный файл _src.bin!";
-        return;
+        return "Error";
     }
     newFilename = filenameConversion(fileName, "_data.bin");
     arrayImage = formatData(arrayImage);
     if (!saveImage(arrayImage, newFilename))
     {
         qDebug() << "Не удалось сохранить бинарный файл _data.bin!";
-        return;
+        return "Error";
     }
-//    //форматирование каждого пикселя по протоколу
-//    image = formatData(image, newFilename);
-//    //добавить проверку что файл вообще есть и он не пустой
-//    serialPortManager->sendFile(newFilename);
-//    newFilename = filenameConversion(fileName, "_res_data.bin");
-//    serialPortManager->receiveFile(newFilename);
-//    emit toMain("вывод текста");
+    return arrayImage;
 }
 
+
+//--------------------------------------------------
+//Преобразование массива данных в изображение полученного с ком-порта
+//
+//  вх: QByteArray array - массив байт полученный с COM-port
+//  выход: нет
+//
+//--------------------------------------------------
 //обратное преобразование
-void ImageProcessing::reverseProcessImage(const QString &filePath)
+void ImageProcessing::reverseProcessImage(QByteArray array, bool result)
 {
-    //??
+    QString newFilename = filenameConversion(fileName, "_res_data.bin");
+    if (!saveImage(array, newFilename))
+    {
+        qDebug() << "Не удалось сохранить бинарный файл _res_data.bin!";
+
+    }
+    array = reFormatData(array);
+    newFilename = filenameConversion(fileName, "_res.bin");
+    if (!saveImage(array, newFilename))
+    {
+        qDebug() << "Не удалось сохранить бинарный файл _res.bin!";
+
+    }
+    newFilename = filenameConversion(fileName, "_res.bmp");
+    createImage(array, newFilename, result);
+
 }
 
+
+//--------------------------------------------------
+//Передача настроек Com-port из класса MainWindow в класс SerialPortManager
+//
+//  вх: QString portName - имя ком-порта,
+//      int baudRate - скорость ком-порта
+//      QString stopBits - стоп-биты
+//      QString parity - четность
+//      QString dataBits - дата биты
+//  выход: bool result - результат отправки настроек на ком-порт
+//
+//--------------------------------------------------
 bool ImageProcessing::transferSettings(QString portName, int baudRate, QString stopBits, QString parity, QString dataBits)
 {
     bool result = false;
@@ -71,11 +106,24 @@ bool ImageProcessing::transferSettings(QString portName, int baudRate, QString s
     return result;
 }
 
+
+//--------------------------------------------------
+//Передача сообщения о закрытии Com-port из класса MainWindow в класс SerialPortManager
+//  вх: нет
+//  выход: нет
+//
+//--------------------------------------------------
 void ImageProcessing::transferToClosePort()
 {
     serialPortManager->closePort();
 }
 
+//--------------------------------------------------
+// Проверка открытия Com-port, передача сообщения из класса MainWindow в класс SerialPortManager
+//  вх: нет
+//  выход: bool result - результат открытия Com-port
+//
+//--------------------------------------------------
 bool ImageProcessing::checkOpenPort()
 {
     bool result = false;
@@ -84,6 +132,12 @@ bool ImageProcessing::checkOpenPort()
     return result;
 }
 
+//--------------------------------------------------
+// Передача сообщения на Com-port из класса MainWindow в класс SerialPortManager
+//  вх: QByteArray byteArray - сообщение для отправки на ComPort
+//  выход: bool result - результат передачи сообщения на Com-port
+//
+//--------------------------------------------------
 bool ImageProcessing::sendMessage(QByteArray byteArray)
 {
     bool result = false;
@@ -92,17 +146,45 @@ bool ImageProcessing::sendMessage(QByteArray byteArray)
     return result;
 }
 
+void ImageProcessing::resetArray()
+{
+    serialPortManager->resetArr();
+}
+
+
+//--------------------------------------------------
+//  Передача сообщения об ошибке, связанной с Com-port
+//  из класса SerialPortManager в класс MainWindow
+//  вх: нет
+//  выход: нет
+//
+//--------------------------------------------------
 void ImageProcessing::receiveSerialErrorSignal(QString errorsFromSerial)
 {
     emit printError(errorsFromSerial);
 }
 
+//--------------------------------------------------
+//  Передача сообщения о полученных данных с Com-port
+//  из класса SerialPortManager в класс MainWindow
+//  вх: нет
+//  выход: нет
+//
+//--------------------------------------------------
 void ImageProcessing::receiveSerialSignal(QByteArray byteArray)
 {
     emit serialReceivedSignal(byteArray);
 }
 
-//сохранение файлов после преобразования из 24-ричного представления в 16-ричное
+
+//--------------------------------------------------
+//  Сохранение массива данных в бинарный файл
+//  вх: QByteArray image - массив данных
+//      const QString &newFileName - путь к бинарному файлу
+//
+//  выход: bool result - результат сохранения в бинарный файл
+//
+//--------------------------------------------------
 bool ImageProcessing::saveImage(QByteArray image, const QString &newFileName)
 {
     bool flag = false;
@@ -117,46 +199,59 @@ bool ImageProcessing::saveImage(QByteArray image, const QString &newFileName)
     return flag;
 }
 
-
-//представление цветных изображений в 16-ричном формате
-QByteArray ImageProcessing::formatImage(const QImage &image)
+//--------------------------------------------------
+//  Преобразование 24-ричных изображений в 16-ричное изображение
+//  и 8-ричное изображение
+//  вх: const QImage &image - исходное изображение
+//      bool result - в какой формат переводить изображение (8-ричный = false,
+//                    16-ричный = true)
+//  выход: QByteArray byteArray - преобразованный массив данных изображения
+//
+//--------------------------------------------------
+QByteArray ImageProcessing::formatImage(QImage &image, bool result)
 {
     QByteArray byteArray;
     QDataStream stream(&byteArray, QIODevice::WriteOnly);
-    for (int y = 0; y<image.height(); y++)
+    heightImage = image.height();
+    widthImage = image.width();
+    if (!result)
     {
-        for (int x = 0; x<image.width(); x++)
+        image = image.convertToFormat(QImage::Format_Mono);
+        //GrayScale взять одну составляющую
+        for (int y = 0; y < image.height(); ++y)
         {
-            QRgb pixel = image.pixel(x,y);
-            QColor color(pixel);
-            if (image.format() == QImage::Format_RGB16)
+            for (int x = 0; x < image.width(); ++x)
             {
-                unsigned short r = color.red() >> 3;
-                unsigned short g = color.green() >> 2;
-                unsigned short b = color.blue() >> 3;
-
-                unsigned short convertedPixel = (r << 11) | (g << 5) | b;
-
-                stream.writeRawData(reinterpret_cast<const char*>(&convertedPixel), sizeof(convertedPixel));
-            }
-            else
-            {
-                unsigned char grayscale = color.black();
-                stream.writeRawData(reinterpret_cast<const char*>(&grayscale), sizeof(grayscale));
+                QRgb pixel = image.pixel(x, y);
+                bool isBlack = (qRed(pixel) == 0 && qGreen(pixel) == 0 && qBlue(pixel) == 0);
+                quint8 value = isBlack ? 0 : 255;
+                stream << value;
             }
         }
     }
-    QRgb pixel = image.pixel(0,0);
-    int colorPixel = (qRed(pixel) >> 3) << 11 | (qGreen(pixel) >> 2) << 5 | (qBlue(pixel) >> 3);
-    qDebug() << QString("%1").arg(pixel,0,16);
-    qDebug() << QString("%1").arg(colorPixel,0,16);
+    else
+    {
+        image = image.convertToFormat(QImage::Format_RGB16);
+        for (int y = 0; y < image.height(); ++y)
+        {
+            for (int x = 0; x < image.width(); ++x)
+            {
+                QRgb pixel = image.pixel(x, y);
+                quint16 rgb565 = ((pixel & 0xF80000) >> 8) | ((pixel & 0xFC00) >> 5) | ((pixel & 0xF8) >> 3);
+                stream << rgb565;
+            }
+        }
+    }
     return byteArray;
 }
 
-
-
-
-//выделение имени файла (отсечение расширения)
+//--------------------------------------------------
+//  Отсечение расширения .bmp от пути файла
+//
+//  вх: const QString &filePath - полный путь до файла
+//  выход: const QString &filePath - путь к файлу без расширения .bmp
+//
+//--------------------------------------------------
 QString ImageProcessing::highlightingTheFileName(const QString &filePath)
 {
     int dotIndex = filePath.lastIndexOf(".");
@@ -166,31 +261,105 @@ QString ImageProcessing::highlightingTheFileName(const QString &filePath)
     return filePath;
 }
 
-//добавление расширения к имени файла
+//--------------------------------------------------
+//  Добавление суффикса к имени файла
+//
+//  вх: const QString &fileName - имя файла
+//      const QString &suffix - суффикс, который необходимо добавить к имени файла
+//  выход: const QString - полученное имя файла
+//
+//--------------------------------------------------
 QString ImageProcessing::filenameConversion(const QString &filename, const QString &suffix)
 {
     return  filename + suffix;
 }
 
-//преобразование каждого пикселя по протоколу и сохранение в бинарный файл для отправки по ком-порту
+//--------------------------------------------------
+//  Преобразование пикселей по протоколу
+//
+//  вх: const QByteArray &image - массив данных изображения
+//  выход: const QByteArray &image - преобразованный по протоколу массив данных
+//
+//--------------------------------------------------
 QByteArray ImageProcessing::formatData(const QByteArray &image)
 {
     int dataSize = image.size();
     QByteArray expandedImage;
     for (int i = 0; i < dataSize; i+=4)
     {
-        QByteArray data = image.mid(i, 4);
-
-        data.resize(8);
+        QByteArray data1 = image.mid(i, 4);
+        QByteArray data;
         for (int j = 0; j < 4; j++)
         {
-            char c = 0;
-            data[4+j] = c;
+            data.append('\x00');
         }
+        data.append(data1);
+        if (data.size() < 8)
+        {
+            data1.remove(0,data1.size());
+            for (int i=0;i<8-data.size();i++)
+                data1.append('\x00');
+            data1.append(data);
+            data.remove(0,data1.size());
+            data = data1;
+        }
+
         expandedImage.append(data);
     }
-
     return expandedImage;
 }
 
+QByteArray ImageProcessing::reFormatData(QByteArray &image)
+{
+    int count = image.size()/8;
+    QByteArray resultArray;
+    for (int i=0; i<count; i++)
+    {
+        QByteArray group = image.mid(i*8, 8);
+        QByteArray firstFour = group.right(4);
+        resultArray.append(firstFour);
+    }
+    return resultArray;
+}
+
+QImage ImageProcessing::createImage(QByteArray array, QString filename, bool result)
+{
+    QImage image(widthImage, heightImage, QImage::Format_RGB888);
+    if (!result)
+    {
+        for (int i = 0; i < heightImage; i++)
+        {
+            for (int j = 0; j < widthImage; j++)
+            {
+                int pixelIndex = i * widthImage + j;
+                char pixelValue = array[pixelIndex];
+                char red = (pixelValue & 0xE0) << 11;
+                char green = (pixelValue & 0x1C) << 6;
+                char blue = (pixelValue & 0x03) << 3;
+                QRgb pixelColor = qRgb(red, green, blue);
+                image.setPixel(j, i, pixelColor);
+            }
+        }
+    }
+    else
+    {
+        for (int i = 0; i < heightImage; i++)
+        {
+            for (int j = 0; j < widthImage; j++)
+            {
+                int pixelIndex = i * widthImage + j;
+                quint16 pixelValue = (array[pixelIndex * 2] << 8) | array[pixelIndex * 2 + 1];
+                char red = ((pixelValue >> 11) & 0x1F) << 3;
+                char green = ((pixelValue >> 5) & 0x3F) << 2;
+                char blue = (pixelValue & 0x1F) << 3;
+                QRgb pixelColor = qRgb(red, green, blue);
+                image.setPixel(j, i, pixelColor);
+            }
+        }
+    }
+
+
+    image.save(filename, "BMP");
+    return image;
+}
 

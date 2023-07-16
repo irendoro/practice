@@ -34,6 +34,7 @@ public:
 
     bool sendData(const QByteArray &data);
     void receiveData();
+    void resetArr();
 
 //    void tosetPortName(const QString &arg1);
 //    void tosetBaudRate(qint32 baudRate);
@@ -54,6 +55,8 @@ public slots:
 private:
     //QSerialPort *serialPort;
     std::unique_ptr<QSerialPort> serialPort;
+    qint64 n;
+    QByteArray receivedData;
     //ImageProcessing *imageProcessing;
 
 };

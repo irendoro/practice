@@ -19,12 +19,13 @@ public:
     ImageProcessing();
     ~ImageProcessing();
 
-    void processImage(const QString &filePath);
-    void reverseProcessImage(const QString &filePath);
+    QByteArray processImage(const QString &filePath, bool result);
+    void reverseProcessImage(QByteArray array, bool result);
     bool transferSettings(QString portName, int baudRate, QString stopBits, QString parity, QString dataBits);
     void transferToClosePort();
     bool checkOpenPort();
     bool sendMessage(QByteArray byteArray);
+    void resetArray();
 
 public slots:
     void receiveSerialErrorSignal(QString);
@@ -40,11 +41,17 @@ signals:
 
 
 private:
-    QByteArray formatImage(const QImage &image);
+    QByteArray formatImage(QImage &image, bool result);
     bool saveImage(QByteArray image, const QString &newFileName);
     QString highlightingTheFileName(const QString &filePath);
     QString filenameConversion(const QString &filename, const QString &suffix);
     QByteArray formatData(const QByteArray &image);
+    QByteArray reFormatData(QByteArray &image);
+    QString fileName;
+    QImage createImage(QByteArray array, QString filename, bool result);
+    int heightImage;
+    int widthImage;
+
 
     //SerialPortManager *serialPortManager;
     std::unique_ptr<SerialPortManager> serialPortManager;
