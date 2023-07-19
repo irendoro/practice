@@ -62,6 +62,7 @@ private:
     //SerialPortManager *serialManager;
     ImageProcessing *imageProcessing;
     QByteArray imageData;
+    bool flag;
 
 
 };

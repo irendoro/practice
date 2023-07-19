@@ -51,6 +51,7 @@ private:
     QImage createImage(QByteArray array, QString filename, bool result);
     int heightImage;
     int widthImage;
+    int Size = 0;
 
 
     //SerialPortManager *serialPortManager;

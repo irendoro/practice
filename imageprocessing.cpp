@@ -211,34 +211,39 @@ bool ImageProcessing::saveImage(QByteArray image, const QString &newFileName)
 QByteArray ImageProcessing::formatImage(QImage &image, bool result)
 {
     QByteArray byteArray;
-    QDataStream stream(&byteArray, QIODevice::WriteOnly);
     heightImage = image.height();
     widthImage = image.width();
     if (!result)
     {
-        image = image.convertToFormat(QImage::Format_Mono);
-        //GrayScale взять одну составляющую
-        for (int y = 0; y < image.height(); ++y)
+        for (int y = 0; y < image.height(); y++)
         {
-            for (int x = 0; x < image.width(); ++x)
+            for (int x = 0; x < image.width(); x++)
             {
                 QRgb pixel = image.pixel(x, y);
-                bool isBlack = (qRed(pixel) == 0 && qGreen(pixel) == 0 && qBlue(pixel) == 0);
-                quint8 value = isBlack ? 0 : 255;
-                stream << value;
+                int value = qGreen(pixel);
+//                char Value = static_cast<char>(value);
+                QByteArray test;
+                test.setNum(value,10);
+                test.toHex();
+                qDebug() << test;
+                byteArray.append(test);
             }
         }
     }
     else
     {
-        image = image.convertToFormat(QImage::Format_RGB16);
         for (int y = 0; y < image.height(); ++y)
         {
             for (int x = 0; x < image.width(); ++x)
             {
                 QRgb pixel = image.pixel(x, y);
-                quint16 rgb565 = ((pixel & 0xF80000) >> 8) | ((pixel & 0xFC00) >> 5) | ((pixel & 0xF8) >> 3);
-                stream << rgb565;
+                int r = (qRed(pixel) >> 3) << 11;
+                int g = (qGreen(pixel) >> 2) << 5;
+                int b = qBlue(pixel) >> 3;
+
+                int rgb565 = r | g | b;
+                char rgb = static_cast<char>(rgb565);
+                byteArray.append(rgb);
             }
         }
     }
@@ -296,6 +301,7 @@ QByteArray ImageProcessing::formatData(const QByteArray &image)
         data.append(data1);
         if (data.size() < 8)
         {
+            Size = 8 - data.size();
             data1.remove(0,data1.size());
             for (int i=0;i<8-data.size();i++)
                 data1.append('\x00');
@@ -313,10 +319,19 @@ QByteArray ImageProcessing::reFormatData(QByteArray &image)
 {
     int count = image.size()/8;
     QByteArray resultArray;
+    if (Size!=0)
+        count--;
     for (int i=0; i<count; i++)
     {
         QByteArray group = image.mid(i*8, 8);
         QByteArray firstFour = group.right(4);
+        resultArray.append(firstFour);
+    }
+    if (Size!=0)
+    {
+        int i = count++;
+        QByteArray group = image.mid(i*8, 8);
+        QByteArray firstFour = group.right(Size);
         resultArray.append(firstFour);
     }
     return resultArray;
@@ -332,10 +347,11 @@ QImage ImageProcessing::createImage(QByteArray array, QString filename, bool res
             for (int j = 0; j < widthImage; j++)
             {
                 int pixelIndex = i * widthImage + j;
-                char pixelValue = array[pixelIndex];
-                char red = (pixelValue & 0xE0) << 11;
-                char green = (pixelValue & 0x1C) << 6;
-                char blue = (pixelValue & 0x03) << 3;
+                char pixelValue = array.at(pixelIndex);
+                char red = pixelValue;
+                char green, blue;
+                blue = red;
+                green = red;
                 QRgb pixelColor = qRgb(red, green, blue);
                 image.setPixel(j, i, pixelColor);
             }
@@ -348,10 +364,15 @@ QImage ImageProcessing::createImage(QByteArray array, QString filename, bool res
             for (int j = 0; j < widthImage; j++)
             {
                 int pixelIndex = i * widthImage + j;
-                quint16 pixelValue = (array[pixelIndex * 2] << 8) | array[pixelIndex * 2 + 1];
-                char red = ((pixelValue >> 11) & 0x1F) << 3;
-                char green = ((pixelValue >> 5) & 0x3F) << 2;
-                char blue = (pixelValue & 0x1F) << 3;
+                QByteArray pixelData = array.mid(pixelIndex,2);
+//                quint16 pixelValue = qFromBigEndian<quint16>(reinterpret_cast<const uchar*>(pixelData.constData()));
+                quint16 pixel = pixelData.toInt(nullptr, 16);
+
+//                char pixelValue = array.at(pixelIndex);
+//                int pixVal = static_cast<int>(pixelValue);
+                int red = (pixel >> 11) << 3;
+                int green = (pixel >> 5) << 2;
+                int blue = pixel << 3;
                 QRgb pixelColor = qRgb(red, green, blue);
                 image.setPixel(j, i, pixelColor);
             }

@@ -42,9 +42,6 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->clear, &QPushButton::clicked, this, &MainWindow::clear);
     connect(ui->chooseImage, &QPushButton::clicked, this,&MainWindow::chooseImage);
     connect(ui->sendFile, &QPushButton::clicked, this, &MainWindow::sendDataFile);
-//    connect(ui->send, &QPushButton::clicked, this, &MainWindow::reset);
-//    connect(ui->sendFile, &QPushButton::clicked, this, &MainWindow::reset);
-//    connect(ui->Convertation, &QPushButton::clicked, this, &MainWindow::convertateToImage);
 }
 
 MainWindow::~MainWindow()
@@ -100,7 +97,6 @@ void MainWindow::toConnect()
         ui->groupBox->setEnabled(false);
         ui->Connect->setEnabled(false);
         ui->Disconnect->setEnabled(true);
-        ui->sendFile->setEnabled(true);
         ui->send->setEnabled(true);
     }
 }
@@ -114,10 +110,10 @@ void MainWindow::toConnect()
 void MainWindow::toDisconnect()
 {
     imageProcessing->transferToClosePort();
+    statusBar()->showMessage("Com-port was closed successfully");
     ui->Connect->setEnabled(true);
     ui->Disconnect->setEnabled(false);
     ui->groupBox->setEnabled(true);
-//    ui->chooseImage->setEnabled(true);
     ui->sendFile->setEnabled(false);
     ui->send->setEnabled(false);
 }
@@ -135,10 +131,12 @@ void MainWindow::receiveMessage(QByteArray responceData)
         Responce = QString(responceData);
     else
         Responce = QString(responceData.toHex());
-//    qDebug() << "2";
     ui->outputMessage->append(Responce);
-    bool result = convertateToImage();
-    imageProcessing->reverseProcessImage(responceData, result);
+    if (!flag) {
+        bool result = convertateToImage();
+        imageProcessing->reverseProcessImage(responceData, result);
+    }
+
 }
 
 void MainWindow::reset()
@@ -157,6 +155,7 @@ void MainWindow::reset()
 void MainWindow::send()
 {
     reset();
+    flag = true;
     if (imageProcessing->checkOpenPort()) {
         QString message = ui->inputMessage->toPlainText();
         QByteArray byteArray;
@@ -165,9 +164,9 @@ void MainWindow::send()
         else
             byteArray = QByteArray::fromHex(message.toUtf8());
         if (imageProcessing->sendMessage(byteArray))
-            statusBar()->showMessage("Success!");
+            statusBar()->showMessage("Data successfully sent via Com-port!!");
         else
-            statusBar()->showMessage("Unsuccess!");
+            statusBar()->showMessage("Data unsuccessfully sent via Com-port!!");
     } else
         statusBar()->showMessage("Unsuccess! Com-port is closed!");
 }
@@ -197,6 +196,7 @@ void MainWindow::chooseImage()
         statusBar()->showMessage("Unsuccess! You havn't selected a file");
         return;
     }
+    ui->sendFile->setEnabled(true);
     bool result = convertateToImage();
     imageData = imageProcessing->processImage(filePath, result);
 }
@@ -210,7 +210,12 @@ void MainWindow::chooseImage()
 void MainWindow::sendDataFile()
 {
     reset();
-    imageProcessing->sendMessage(imageData);
+    flag = false;
+    bool result = imageProcessing->sendMessage(imageData);
+    if (result)
+        statusBar()->showMessage("DataFile successfully sent via Com-port!");
+    else
+        statusBar()->showMessage("DataFile unsuccessfully sent via Com-port!");
 }
 
 bool MainWindow::convertateToImage()

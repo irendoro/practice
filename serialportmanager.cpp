@@ -117,6 +117,7 @@ void SerialPortManager::closePort()
     {
         serialPort->close();
     }
+
 }
 
 //--------------------------------------------------
@@ -132,6 +133,7 @@ bool SerialPortManager::sendData(const QByteArray &data)
     if (serialPort->waitForBytesWritten())
         result = true;
     return result;
+    sentData = data;
 }
 
 //--------------------------------------------------
@@ -142,18 +144,18 @@ bool SerialPortManager::sendData(const QByteArray &data)
 //--------------------------------------------------
 void SerialPortManager::receiveData()
 {
-
+    bool result = false;
     if (serialPort->isOpen())
     {
         QByteArray newData = serialPort->readAll();
         receivedData.append(newData);
         if (receivedData.size() >= n)
         {
+            if (sentData.operator==(receivedData))
+                result = true;
+            qDebug() << result;
             emit serialReceiveSignal(receivedData);
-//            qDebug() << "All good";
         }
-//        else
-//            qDebug() << "Problem" << receivedData.size();
     }
 }
 

@@ -56,7 +56,7 @@ private:
     //QSerialPort *serialPort;
     std::unique_ptr<QSerialPort> serialPort;
     qint64 n;
-    QByteArray receivedData;
+    QByteArray receivedData, sentData;
     //ImageProcessing *imageProcessing;
 
 };
