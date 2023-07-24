@@ -42,6 +42,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui->clear, &QPushButton::clicked, this, &MainWindow::clear);
     connect(ui->chooseImage, &QPushButton::clicked, this,&MainWindow::chooseImage);
     connect(ui->sendFile, &QPushButton::clicked, this, &MainWindow::sendDataFile);
+    connect(ui->compare, &QPushButton::clicked, this, &MainWindow::comparision);
 }
 
 MainWindow::~MainWindow()
@@ -116,6 +117,7 @@ void MainWindow::toDisconnect()
     ui->groupBox->setEnabled(true);
     ui->sendFile->setEnabled(false);
     ui->send->setEnabled(false);
+    ui->compare->setEnabled(false);
 }
 
 //--------------------------------------------------
@@ -142,6 +144,15 @@ void MainWindow::receiveMessage(QByteArray responceData)
 void MainWindow::reset()
 {
     imageProcessing->resetArray();
+}
+
+void MainWindow::comparision()
+{
+    bool result = imageProcessing->comparisonData();
+    if (!result)
+        statusBar()->showMessage("Принятое изображение не совпадает с отправленным!");
+    else
+        statusBar()->showMessage("Принятое изображение совпадает с отправленным!");
 }
 
 //--------------------------------------------------
@@ -197,6 +208,7 @@ void MainWindow::chooseImage()
         return;
     }
     ui->sendFile->setEnabled(true);
+    ui->compare->setEnabled(false);
     bool result = convertateToImage();
     imageData = imageProcessing->processImage(filePath, result);
 }
@@ -213,7 +225,10 @@ void MainWindow::sendDataFile()
     flag = false;
     bool result = imageProcessing->sendMessage(imageData);
     if (result)
+    {
+        ui->compare->setEnabled(true);
         statusBar()->showMessage("DataFile successfully sent via Com-port!");
+    }
     else
         statusBar()->showMessage("DataFile unsuccessfully sent via Com-port!");
 }

@@ -26,6 +26,7 @@ public:
     bool checkOpenPort();
     bool sendMessage(QByteArray byteArray);
     void resetArray();
+    bool comparisonData();
 
 public slots:
     void receiveSerialErrorSignal(QString);
@@ -45,10 +46,11 @@ private:
     bool saveImage(QByteArray image, const QString &newFileName);
     QString highlightingTheFileName(const QString &filePath);
     QString filenameConversion(const QString &filename, const QString &suffix);
+    QByteArray underFormatImage(QImage image);
     QByteArray formatData(const QByteArray &image);
     QByteArray reFormatData(QByteArray &image);
     QString fileName;
-    QImage createImage(QByteArray array, QString filename, bool result);
+    QByteArray createImage(QByteArray array, QString filename, bool result);
     int heightImage;
     int widthImage;
     int Size = 0;

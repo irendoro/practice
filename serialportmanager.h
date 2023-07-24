@@ -33,7 +33,7 @@ public:
     void closePort();
 
     bool sendData(const QByteArray &data);
-    void receiveData();
+    bool receiveData();
     void resetArr();
 
 //    void tosetPortName(const QString &arg1);

@@ -3,6 +3,7 @@
 #include <QDebug>
 #include <QFileInfo>
 #include <QObject>
+#include <QPixmap>
 #include "mainwindow.h"
 #include "serialportmanager.h"
 
@@ -39,9 +40,18 @@ QByteArray ImageProcessing::processImage(const QString &filePath, bool result)
         qDebug() << "Не удалось открыть изображение";
         return "Error";
     }
+
     fileName = highlightingTheFileName(filePath); //выделение имени файла
-    QString newFilename = filenameConversion(fileName, "_src.bin");//создание имени бинарного файла "Файл_src.bin"
-    QByteArray arrayImage = formatImage(image, result);
+    QString newFilename = filenameConversion(fileName, "_under_src.bin");//создание имени бинарного файла "Файл_src.bin"
+    QByteArray arrayImage = underFormatImage(image);
+    if (!saveImage(arrayImage, newFilename))
+    {
+        qDebug() << "Не удалось сохранить бинарный файл _under_src.bin!";
+        return "Error";
+    }
+
+    newFilename = filenameConversion(fileName, "_src.bin");//создание имени бинарного файла "Файл_src.bin"
+    arrayImage = formatImage(image, result);
     if (!saveImage(arrayImage, newFilename))
     {
         qDebug() << "Не удалось сохранить бинарный файл _src.bin!";
@@ -68,6 +78,7 @@ QByteArray ImageProcessing::processImage(const QString &filePath, bool result)
 //обратное преобразование
 void ImageProcessing::reverseProcessImage(QByteArray array, bool result)
 {
+
     QString newFilename = filenameConversion(fileName, "_res_data.bin");
     if (!saveImage(array, newFilename))
     {
@@ -82,8 +93,12 @@ void ImageProcessing::reverseProcessImage(QByteArray array, bool result)
 
     }
     newFilename = filenameConversion(fileName, "_res.bmp");
-    createImage(array, newFilename, result);
-
+    array = createImage(array, newFilename, result);
+    newFilename = filenameConversion(fileName, "_after_res.bin");
+    if (!saveImage(array, newFilename))
+    {
+        qDebug() << "Не удалось сохранить бинарный файл _after_res.bin!";
+    }
 }
 
 
@@ -151,6 +166,13 @@ void ImageProcessing::resetArray()
     serialPortManager->resetArr();
 }
 
+bool ImageProcessing::comparisonData()
+{
+    bool result;
+    result = serialPortManager->receiveData();
+    return result;
+}
+
 
 //--------------------------------------------------
 //  Передача сообщения об ошибке, связанной с Com-port
@@ -213,6 +235,7 @@ QByteArray ImageProcessing::formatImage(QImage &image, bool result)
     QByteArray byteArray;
     heightImage = image.height();
     widthImage = image.width();
+
     if (!result)
     {
         for (int y = 0; y < image.height(); y++)
@@ -220,13 +243,8 @@ QByteArray ImageProcessing::formatImage(QImage &image, bool result)
             for (int x = 0; x < image.width(); x++)
             {
                 QRgb pixel = image.pixel(x, y);
-                int value = qGreen(pixel);
-//                char Value = static_cast<char>(value);
-                QByteArray test;
-                test.setNum(value,10);
-                test.toHex();
-                qDebug() << test;
-                byteArray.append(test);
+                uchar value = qGreen(pixel);
+                byteArray.append(value);
             }
         }
     }
@@ -237,16 +255,18 @@ QByteArray ImageProcessing::formatImage(QImage &image, bool result)
             for (int x = 0; x < image.width(); ++x)
             {
                 QRgb pixel = image.pixel(x, y);
-                int r = (qRed(pixel) >> 3) << 11;
-                int g = (qGreen(pixel) >> 2) << 5;
-                int b = qBlue(pixel) >> 3;
+                ushort rgb565 = (qRed(pixel) >> 3) << 11 | (qGreen(pixel) >> 2) << 5 | qBlue(pixel) >> 3;
+                QByteArray num;
+                QByteArray temp_num = num.setNum(rgb565,16);
+                QByteArray byte_pixel = QByteArray::fromHex(temp_num);
 
-                int rgb565 = r | g | b;
-                char rgb = static_cast<char>(rgb565);
-                byteArray.append(rgb);
+
+
+                byteArray.append(byte_pixel);
             }
         }
     }
+    qDebug() << "Из 24-разрядного в 16-разрядное" << byteArray.size();
     return byteArray;
 }
 
@@ -279,8 +299,27 @@ QString ImageProcessing::filenameConversion(const QString &filename, const QStri
     return  filename + suffix;
 }
 
+QByteArray ImageProcessing::underFormatImage(QImage image)
+{
+    QByteArray byteArray;
+    heightImage = image.height();
+    widthImage = image.width();
+
+    for (int y = 0; y < image.height(); y++)
+    {
+        for (int x = 0; x < image.width(); x++)
+        {
+            QRgb pixel = image.pixel(x, y);
+            byteArray.append(pixel);
+        }
+    }
+    qDebug() << "Изначальный размер" << byteArray.size();
+    return byteArray;
+
+}
+
 //--------------------------------------------------
-//  Преобразование пикселей по протоколу
+//  Преобразование пикселей по протоколу, добавление нулей
 //
 //  вх: const QByteArray &image - массив данных изображения
 //  выход: const QByteArray &image - преобразованный по протоколу массив данных
@@ -293,6 +332,8 @@ QByteArray ImageProcessing::formatData(const QByteArray &image)
     for (int i = 0; i < dataSize; i+=4)
     {
         QByteArray data1 = image.mid(i, 4);
+        if (data1.size()!=4)
+            Size = data1.size();
         QByteArray data;
         for (int j = 0; j < 4; j++)
         {
@@ -301,7 +342,6 @@ QByteArray ImageProcessing::formatData(const QByteArray &image)
         data.append(data1);
         if (data.size() < 8)
         {
-            Size = 8 - data.size();
             data1.remove(0,data1.size());
             for (int i=0;i<8-data.size();i++)
                 data1.append('\x00');
@@ -312,6 +352,7 @@ QByteArray ImageProcessing::formatData(const QByteArray &image)
 
         expandedImage.append(data);
     }
+    qDebug() << "Добавили нули" << expandedImage.size();
     return expandedImage;
 }
 
@@ -334,53 +375,61 @@ QByteArray ImageProcessing::reFormatData(QByteArray &image)
         QByteArray firstFour = group.right(Size);
         resultArray.append(firstFour);
     }
+    Size = 0;
+    qDebug() << "Убрали нули" << resultArray.size();
     return resultArray;
 }
 
-QImage ImageProcessing::createImage(QByteArray array, QString filename, bool result)
+QByteArray ImageProcessing::createImage(QByteArray array, QString filename, bool result)
 {
-    QImage image(widthImage, heightImage, QImage::Format_RGB888);
+    QImage imageNew(widthImage, heightImage, QImage::Format_RGB32);
+    QByteArray arrayImage;
     if (!result)
     {
+        //8-ричное
         for (int i = 0; i < heightImage; i++)
         {
             for (int j = 0; j < widthImage; j++)
             {
-                int pixelIndex = i * widthImage + j;
-                char pixelValue = array.at(pixelIndex);
-                char red = pixelValue;
-                char green, blue;
+                int pixelIndex;
+                pixelIndex = i * widthImage + j;
+                uchar pixelValue = array.at(pixelIndex);
+                uchar red = pixelValue;
+                uchar green, blue;
                 blue = red;
                 green = red;
-                QRgb pixelColor = qRgb(red, green, blue);
-                image.setPixel(j, i, pixelColor);
+                QColor color;
+                color.setRgb(red, green, blue);
+                imageNew.setPixelColor(j,i,color);
             }
         }
     }
     else
     {
+        //16-ричное
         for (int i = 0; i < heightImage; i++)
         {
             for (int j = 0; j < widthImage; j++)
             {
-                int pixelIndex = i * widthImage + j;
-                QByteArray pixelData = array.mid(pixelIndex,2);
-//                quint16 pixelValue = qFromBigEndian<quint16>(reinterpret_cast<const uchar*>(pixelData.constData()));
-                quint16 pixel = pixelData.toInt(nullptr, 16);
-
-//                char pixelValue = array.at(pixelIndex);
-//                int pixVal = static_cast<int>(pixelValue);
-                int red = (pixel >> 11) << 3;
-                int green = (pixel >> 5) << 2;
-                int blue = pixel << 3;
-                QRgb pixelColor = qRgb(red, green, blue);
-                image.setPixel(j, i, pixelColor);
+                int pixelIndex;
+                pixelIndex = i * widthImage*2 + j*2;
+                QByteArray newByteArray = array.mid(pixelIndex, 2);
+                QByteArray byte = newByteArray.toHex();
+                ushort pixelValue = static_cast<ushort>(byte.toInt(nullptr,16));
+                uchar red = ((pixelValue  >> 11) & 0x001F)<<3;
+                uchar green = ((pixelValue >> 5) & 0x003F)<<2;
+                uchar blue = (pixelValue  & 0x001F) << 3;
+                QColor color;
+                color.setRgb(red, green, blue);
+                imageNew.setPixelColor(j,i,color);
+                arrayImage.append(red);
+                arrayImage.append(green);
+                arrayImage.append(blue);
             }
         }
     }
-
-
-    image.save(filename, "BMP");
-    return image;
+    imageNew.save(filename);
+    qDebug() << "Из 16 в 24" << arrayImage.size();
+    return arrayImage;
 }
 

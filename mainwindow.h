@@ -35,6 +35,7 @@ public slots:
     void toDisconnect();
     void receiveMessage(QByteArray);
     void reset();
+    void comparision();
 
 //    void handleForwardPortOpened();
 signals:
@@ -55,6 +56,7 @@ private slots:
     void clear();
     void chooseImage();
     void sendDataFile();
+
     bool convertateToImage();
 
 private:
