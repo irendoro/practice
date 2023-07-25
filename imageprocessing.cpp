@@ -94,6 +94,11 @@ void ImageProcessing::reverseProcessImage(QByteArray array, bool result)
     }
     newFilename = filenameConversion(fileName, "_res.bmp");
     array = createImage(array, newFilename, result);
+
+
+
+    QImage image(newFilename);
+    array = underFormatImage(image);
     newFilename = filenameConversion(fileName, "_after_res.bin");
     if (!saveImage(array, newFilename))
     {
@@ -172,7 +177,6 @@ bool ImageProcessing::comparisonData()
     result = serialPortManager->receiveData();
     return result;
 }
-
 
 //--------------------------------------------------
 //  Передача сообщения об ошибке, связанной с Com-port
@@ -254,19 +258,26 @@ QByteArray ImageProcessing::formatImage(QImage &image, bool result)
         {
             for (int x = 0; x < image.width(); ++x)
             {
-                QRgb pixel = image.pixel(x, y);
-                ushort rgb565 = (qRed(pixel) >> 3) << 11 | (qGreen(pixel) >> 2) << 5 | qBlue(pixel) >> 3;
+                QColor pixel = image.pixel(x, y);
+                int r = pixel.red();
+                int g = pixel.green();
+                int b = pixel.blue();
+                ushort red = (r >> 3) & 0x1F;
+                ushort green = (g >> 2) & 0x3F;
+                ushort blue = (b >> 3 ) & 0x1F;
+                ushort rgb565 = 0;
+                rgb565 = (red << 11) | (green << 5) | blue;
                 QByteArray num;
                 QByteArray temp_num = num.setNum(rgb565,16);
+
                 QByteArray byte_pixel = QByteArray::fromHex(temp_num);
 
-
-
+                if (byte_pixel.size() < 2)
+                    byte_pixel.prepend('\x00');
                 byteArray.append(byte_pixel);
             }
         }
     }
-    qDebug() << "Из 24-разрядного в 16-разрядное" << byteArray.size();
     return byteArray;
 }
 
@@ -310,12 +321,17 @@ QByteArray ImageProcessing::underFormatImage(QImage image)
         for (int x = 0; x < image.width(); x++)
         {
             QRgb pixel = image.pixel(x, y);
-            byteArray.append(pixel);
+            int r = qRed(pixel);
+            int g = qGreen(pixel);
+            int b = qBlue(pixel);
+            quint32 color = qRgb(r, g, b);
+            QByteArray num;
+            QByteArray temp_num = num.setNum(color,16);
+            QByteArray byte_pixel = QByteArray::fromHex(temp_num);
+            byteArray.append(byte_pixel);
         }
     }
-    qDebug() << "Изначальный размер" << byteArray.size();
     return byteArray;
-
 }
 
 //--------------------------------------------------
@@ -352,7 +368,6 @@ QByteArray ImageProcessing::formatData(const QByteArray &image)
 
         expandedImage.append(data);
     }
-    qDebug() << "Добавили нули" << expandedImage.size();
     return expandedImage;
 }
 
@@ -376,7 +391,6 @@ QByteArray ImageProcessing::reFormatData(QByteArray &image)
         resultArray.append(firstFour);
     }
     Size = 0;
-    qDebug() << "Убрали нули" << resultArray.size();
     return resultArray;
 }
 
@@ -416,20 +430,17 @@ QByteArray ImageProcessing::createImage(QByteArray array, QString filename, bool
                 QByteArray newByteArray = array.mid(pixelIndex, 2);
                 QByteArray byte = newByteArray.toHex();
                 ushort pixelValue = static_cast<ushort>(byte.toInt(nullptr,16));
-                uchar red = ((pixelValue  >> 11) & 0x001F)<<3;
-                uchar green = ((pixelValue >> 5) & 0x003F)<<2;
-                uchar blue = (pixelValue  & 0x001F) << 3;
+                uchar red = static_cast<uchar>(((pixelValue  >> 11) & 0x001F)<<3);
+                uchar green = static_cast<uchar>(((pixelValue >> 5) & 0x003F)<<2);
+                uchar blue = static_cast<uchar>((pixelValue  & 0x001F) << 3);
                 QColor color;
                 color.setRgb(red, green, blue);
+
                 imageNew.setPixelColor(j,i,color);
-                arrayImage.append(red);
-                arrayImage.append(green);
-                arrayImage.append(blue);
             }
         }
     }
     imageNew.save(filename);
-    qDebug() << "Из 16 в 24" << arrayImage.size();
     return arrayImage;
 }
 

@@ -128,13 +128,12 @@ void SerialPortManager::closePort()
 //--------------------------------------------------
 bool SerialPortManager::sendData(const QByteArray &data)
 {
+    sentData = data;
     bool result = false;
-    n = serialPort->write(data);
-    qDebug() << "отправленные данные" << n;
-    if (serialPort->waitForBytesWritten())
+    n = serialPort->write(data); // возвращает номер записанного байта
+    if (n == data.size()) // если последний записанный байт == размеру массива
         result = true;
     return result;
-    sentData = data;
 }
 
 //--------------------------------------------------
@@ -150,13 +149,9 @@ bool SerialPortManager::receiveData()
     {
         QByteArray newData = serialPort->readAll();
         receivedData.append(newData);
-        qDebug() << "Размер полученных данных" << receivedData.size();
-        if (receivedData.size() >= n)
+        if (receivedData == sentData)
         {
-            if (sentData.operator==(receivedData))
-                result = true;
-
-
+            result = true;
             emit serialReceiveSignal(receivedData);
         }
     }

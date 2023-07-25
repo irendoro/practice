@@ -99,6 +99,8 @@ void MainWindow::toConnect()
         ui->Connect->setEnabled(false);
         ui->Disconnect->setEnabled(true);
         ui->send->setEnabled(true);
+        if (checkImage)
+            ui->sendFile->setEnabled(true);
     }
 }
 
@@ -137,6 +139,7 @@ void MainWindow::receiveMessage(QByteArray responceData)
     if (!flag) {
         bool result = convertateToImage();
         imageProcessing->reverseProcessImage(responceData, result);
+        ui->compare->setEnabled(true);
     }
 
 }
@@ -154,6 +157,7 @@ void MainWindow::comparision()
     else
         statusBar()->showMessage("Принятое изображение совпадает с отправленным!");
 }
+
 
 //--------------------------------------------------
 //  Кнопка Send, отправка сообщения для пересылки на ComPort
@@ -207,7 +211,9 @@ void MainWindow::chooseImage()
         statusBar()->showMessage("Unsuccess! You havn't selected a file");
         return;
     }
-    ui->sendFile->setEnabled(true);
+    checkImage = true;
+    if (imageProcessing->checkOpenPort())
+        ui->sendFile->setEnabled(true);
     ui->compare->setEnabled(false);
     bool result = convertateToImage();
     imageData = imageProcessing->processImage(filePath, result);
@@ -225,10 +231,7 @@ void MainWindow::sendDataFile()
     flag = false;
     bool result = imageProcessing->sendMessage(imageData);
     if (result)
-    {
-        ui->compare->setEnabled(true);
         statusBar()->showMessage("DataFile successfully sent via Com-port!");
-    }
     else
         statusBar()->showMessage("DataFile unsuccessfully sent via Com-port!");
 }

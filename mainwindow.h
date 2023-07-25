@@ -65,6 +65,7 @@ private:
     ImageProcessing *imageProcessing;
     QByteArray imageData;
     bool flag;
+    bool checkImage = false;
 
 
 };
